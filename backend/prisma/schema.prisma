@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String   @id @default(cuid())
+  firstName  String
+  lastName   String
+  email      String   @unique
+  password   String
+  role       String   @default("PROCUREMENT_OFFICER")
+  country    String?
+  phone      String?
+  createdAt  DateTime @default(now())
+  ActivityLog ActivityLog[]
+}
+
+// Role is defined as an enum in backend/src/types/role.ts
+
+model Vendor {
+  id           String   @id @default(cuid())
+  vendorName   String
+  category     String?
+  gstNumber    String?
+  contactPerson String?
+  phone        String?
+  email        String?
+  rating       Float?   @default(0)
+  status       String   @default("ACTIVE")
+  address      String?
+  country      String?
+  createdAt    DateTime @default(now())
+  rfqVendors   RFQVendors[]
+  Quotations   Quotation[]
+  purchaseOrders PurchaseOrder[]
+}
+
+model RFQ {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  quantity    Int
+  expectedBudget Float?
+  deadline    DateTime
+  status      String    @default("DRAFT")
+  createdBy   String
+  createdAt   DateTime  @default(now())
+  RFQVendors  RFQVendors[]
+  Quotations  Quotation[]
+}
+
+model RFQVendors {
+  id       String @id @default(cuid())
+  rfq      RFQ    @relation(fields: [rfqId], references: [id])
+  rfqId    String
+  vendor   Vendor @relation(fields: [vendorId], references: [id])
+  vendorId String
+}
+
+model Quotation {
+  id           String   @id @default(cuid())
+  rfq          RFQ      @relation(fields: [rfqId], references: [id])
+  rfqId        String
+  vendor       Vendor   @relation(fields: [vendorId], references: [id])
+  vendorId     String
+  price        Float
+  gst          Float
+  deliveryDays Int
+  notes        String?
+  status       String   @default("SUBMITTED")
+  createdAt    DateTime @default(now())
+  Approval     Approval?
+  PurchaseOrder PurchaseOrder?
+}
+
+model Approval {
+  id          String   @id @default(cuid())
+  quotation   Quotation @relation(fields: [quotationId], references: [id])
+  quotationId String   @unique
+  managerId   String
+  remarks     String?
+  status      String
+  createdAt   DateTime @default(now())
+}
+
+model PurchaseOrder {
+  id           String   @id @default(cuid())
+  poNumber     String   @unique
+  quotation    Quotation @relation(fields: [quotationId], references: [id])
+  quotationId  String   @unique
+  vendor        Vendor  @relation(fields: [vendorId], references: [id])
+  vendorId     String
+  amount       Float
+  status       String   @default("CREATED")
+  createdAt    DateTime @default(now())
+  Invoice      Invoice?
+}
+
+model Invoice {
+  id            String   @id @default(cuid())
+  invoiceNumber String   @unique
+  po            PurchaseOrder @relation(fields: [poId], references: [id])
+  poId          String   @unique
+  subtotal      Float
+  tax           Float
+  total         Float
+  status        String   @default("DRAFT")
+  createdAt     DateTime @default(now())
+}
+
+model Notification {
+  id       String @id @default(cuid())
+  userId   String
+  message  String
+  isRead   Boolean @default(false)
+  createdAt DateTime @default(now())
+}
+
+model ActivityLog {
+  id        String @id @default(cuid())
+  userId    String
+  action    String
+  entityType String
+  entityId  String
+  createdAt DateTime @default(now())
+  user      User?   @relation(fields: [userId], references: [id])
+}
+
+model ExportJob {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   // CSV or PDF
+  status    String   @default("PENDING")
+  filename  String?
+  s3Key     String?
+  filters   String?
+  createdAt DateTime @default(now())
+  completedAt DateTime?
+}
